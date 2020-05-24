@@ -51,7 +51,7 @@ def set_state(chat_id, state_name):  # Установка состояния
 
 
 def notification(chat_id):
-    bot.send_message(chat_id, 'Ало, тут ващет ' + get_task(chat_id))
+    bot.send_message(chat_id, 'Напоминаю о " ' + get_task(chat_id) + '"')
     delete_task(chat_id, get_task(chat_id))
 
 
