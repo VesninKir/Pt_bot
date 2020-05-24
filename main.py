@@ -84,8 +84,8 @@ def set_text(message):
     set_state(message.chat.id, States.State_Done)
     add_to_db_task_list(message.chat.id, time, task_name)
     bot.send_message(message.chat.id, "Готово! Я напомню вам о " + task_name)
-    a = Timer(alarm_time, notification, [message.chat.id])
-    a.start()
+    timer = Timer(alarm_time, notification, [message.chat.id])
+    timer.start()
 
 
 @bot.message_handler(content_types=["text"])  # Проверка на введенный с клавиатуры текст вне ключевых состояний
