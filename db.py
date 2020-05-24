@@ -7,7 +7,7 @@ def init_database():
     connector, cursor = connect()
     cursor.execute("""CREATE TABLE IF NOT EXISTS 'users'(chat_id TEXT UNIQUE, timezone INT)""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS 'task_list'
-                      (id text, time text, text text)""")
+                      (id TEXT, time INT, text TEXT)""")
     cursor.execute("""CREATE TABLE IF NOT EXISTS 'state'(id text UNIQUE, states text DEFAULT "ZeroState" NOT NULL)""")
     connector.commit()
 
@@ -57,4 +57,8 @@ def get_timezone(chat_id):
     connector, cursor = connect()
     cursor.execute(f"""SELECT timezone FROM 'users' WHERE chat_id='{chat_id}'""")
     ce = cursor.fetchone()
-    return ce
+    if ce is None:
+        return None
+    else:
+        a = ce[0]
+        return a
