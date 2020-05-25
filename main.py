@@ -26,7 +26,7 @@ def start_answer(message):
         bot.send_message(message.chat.id, 'Привет, я помогу тебе вспомнить всё.\n', reply_markup=start_keyboard)
     else:
         bot.send_message(message.chat.id, 'Привет, я помогу тебе вспомнить всё.\n'
-                                          'Для начала работы введите Вашу временную зону: \n')
+                                          'Для начала работы введите Вашу временную зону относительно GMT+0: \n')
         set_state(message.chat.id, States.State_SetTimezone)
 
 
@@ -35,7 +35,6 @@ def start_answer(message):
 def fill_db(message):
     clear_str = message.text.lower()
     clear_str = clear_str.replace('gmt', '')
-    clear_str = clear_str.replace('мск', '')
     try:
         value = int(clear_str)
     except AttributeError:
@@ -58,22 +57,33 @@ def notification(chat_id):
 @bot.message_handler(func=lambda message: message.text == "Новое напоминание")  # Проверка состояния времени и ввод
 def reminders_start(message):
     set_state(message.chat.id, States.State_SetTime)
-    bot.send_message(message.chat.id, 'Введите время в GMT+0:')
+    bot.send_message(message.chat.id, 'Введите время в GMT+0\n'
+                                      'Формат ввода: H:M D.M.Y\n')
 
 
 @bot.message_handler(
     func=lambda message: get_state(message.chat.id) in [States.State_SetTime])  # Проверка состояния, введение времени
 def set_time(message):
     global time, alarm_time
-    set_state(message.chat.id, States.State_SetText)
     time = message.text
     value = datetime.datetime.strptime(time, '%H:%M %d.%m.%Y')
     delta = datetime.timedelta(hours=get_timezone(message.chat.id))
-    value = value + delta
-    time_now = datetime.datetime.now()
-    alarm_time = int(value.timestamp() - time_now.timestamp())
-    bot.send_message(message.chat.id, alarm_time)
-    bot.send_message(message.chat.id, "Введите текст напоминания:", time)
+    value -= delta
+    server_time_now = datetime.timedelta(hours=7)
+    time_now = datetime.datetime.now() - server_time_now
+    if time_now > value:
+        keyboard = types.InlineKeyboardMarkup()
+        url_button = types.InlineKeyboardButton(text="Назад в 2007!", url="https://www.youtube.com/watch?v=pcr8kBeA_kE")
+        keyboard.add(url_button)
+        bot.send_message(message.chat.id, "Кажется, кто-то хочет вернуться в прошлое?\n"
+                                          "Можем попробовать. Или введи корректную дату в будущем.",
+                         reply_markup=keyboard)
+        return
+    else:
+        set_state(message.chat.id, States.State_SetText)
+        alarm_time = int(value.timestamp() - time_now.timestamp())
+        bot.send_message(message.chat.id, alarm_time)
+        bot.send_message(message.chat.id, "Введите текст напоминания:", time)
 
 
 @bot.message_handler(func=lambda message: get_state(message.chat.id) in [States.State_SetText])  # Проверка состояния,
