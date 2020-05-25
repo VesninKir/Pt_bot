@@ -1,22 +1,23 @@
 import datetime
-from threading import Timer
+import config
+import re
 
 import telebot
 from telebot import types
-
-import config
 from src.db import init_database, add_to_db_task_list, update_state, get_state, add_to_db_users, get_timezone, get_task, \
     delete_task
 from src.state_machine import States
+from threading import Timer
 
-bot = telebot.TeleBot(config.token)
+bot = telebot.TeleBot(config.TOKEN)
 
 start_keyboard = types.ReplyKeyboardMarkup(True, True)
 new_reminder_button = types.KeyboardButton('Новое напоминание')
 start_keyboard.add(new_reminder_button)
 
 alarm_time = 0
-
+time_pattern = re.compile(r'(?P<time>\d+:\d+) ')
+day_pattern = re.compile(r' (?P<day>.*)')
 task_name = ''
 
 
@@ -27,7 +28,7 @@ def start_answer(message):
     else:
         bot.send_message(message.chat.id, 'Привет, я помогу тебе вспомнить всё.\n'
                                           'Для начала работы введите Вашу временную зону относительно GMT+0: \n')
-        set_state(message.chat.id, States.State_SetTimezone)
+        update_state(message.chat.id, States.State_SetTimezone)
 
 
 # Проверка состояния, установка временной зоны
@@ -40,13 +41,9 @@ def fill_db(message):
     except AttributeError:
         bot.send_message(message.chat.id, 'Введено неверное число! Попробуйте еще!')
         return
-    set_state(message.chat.id, States.Start_state)
+    update_state(message.chat.id, States.Start_state)
     add_to_db_users(message.chat.id, value)
     bot.send_message(message.chat.id, 'Временная зона установлена!', reply_markup=start_keyboard)
-
-
-def set_state(chat_id, state_name):  # Установка состояния
-    update_state(chat_id, state_name)
 
 
 def notification(chat_id):
@@ -56,16 +53,28 @@ def notification(chat_id):
 
 @bot.message_handler(func=lambda message: message.text == "Новое напоминание")  # Проверка состояния времени и ввод
 def reminders_start(message):
-    set_state(message.chat.id, States.State_SetTime)
+    update_state(message.chat.id, States.State_SetTime)
     bot.send_message(message.chat.id, 'Введите время в GMT+0\n'
                                       'Формат ввода: H:M D.M.Y\n')
+
+
+def parse_time(text):
+    time_ = time_pattern.search(text).group('time')
+    day_ = day_pattern.search(text).group('day')
+    time_ = time_.split(':')
+    day_ = day_.split('.')
+    time_ = [f"0{value}" if len(value) == 1 else value for value in time_]
+    day_ = [f"0{value}" if len(value) == 1 else value for value in day_]
+    parsed_time = ':'.join(time_)
+    parsed_day = '.'.join(day_)
+    return f"{parsed_time} {parsed_day}"
 
 
 @bot.message_handler(
     func=lambda message: get_state(message.chat.id) in [States.State_SetTime])  # Проверка состояния, введение времени
 def set_time(message):
     global time, alarm_time
-    time = message.text
+    time = parse_time(message.text)
     value = datetime.datetime.strptime(time, '%H:%M %d.%m.%Y')
     delta = datetime.timedelta(hours=get_timezone(message.chat.id))
     value -= delta
@@ -79,11 +88,11 @@ def set_time(message):
                                           "Можем попробовать. Или введи корректную дату в будущем.",
                          reply_markup=keyboard)
         return
-    else:
-        set_state(message.chat.id, States.State_SetText)
-        alarm_time = int(value.timestamp() - time_now.timestamp())
-        bot.send_message(message.chat.id, alarm_time)
-        bot.send_message(message.chat.id, "Введите текст напоминания:", time)
+
+    update_state(message.chat.id, States.State_SetText)
+    alarm_time = int(value.timestamp() - time_now.timestamp())
+    bot.send_message(message.chat.id, alarm_time)
+    bot.send_message(message.chat.id, "Введите текст напоминания:", time)
 
 
 @bot.message_handler(func=lambda message: get_state(message.chat.id) in [States.State_SetText])  # Проверка состояния,
@@ -91,7 +100,7 @@ def set_time(message):
 def set_text(message):
     global task_name, time
     task_name = message.text
-    set_state(message.chat.id, States.State_Done)
+    update_state(message.chat.id, States.State_Done)
     add_to_db_task_list(message.chat.id, time, task_name)
     bot.send_message(message.chat.id, "Готово! Я напомню вам о " + task_name)
     timer = Timer(alarm_time, notification, [message.chat.id])
@@ -99,7 +108,7 @@ def set_text(message):
 
 
 @bot.message_handler(content_types=["text"])  # Проверка на введенный с клавиатуры текст вне ключевых состояний
-def corrupt(message):
+def default_response(message):
     if message.text == 'Привет':
         bot.send_message(message.chat.id, "Привет!", reply_markup=start_keyboard)
     else:

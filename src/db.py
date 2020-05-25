@@ -49,8 +49,8 @@ def get_state(chat_id):  # Функция получает данные поля
     connector, cursor = connect()
     cursor.execute(f"""SELECT states FROM 'state' WHERE id='{chat_id}'""")
     temp = cursor.fetchone()
-    firs_in_turple = States[temp[0]]
-    return firs_in_turple
+    state = States[temp[0]]
+    return state
 
 
 def get_task(chat_id):  # Функция получает данные поля text таблицы task_list
@@ -60,8 +60,8 @@ def get_task(chat_id):  # Функция получает данные поля 
     if not temp:
         return None
     else:
-        first_in_turple = temp[0]
-        return first_in_turple
+        text = temp[0]
+        return text
 
 
 def delete_task(chat_id, first):
@@ -76,7 +76,7 @@ def get_timezone(chat_id):  # Функция получает данные по�
     cursor.execute(f"""SELECT timezone FROM 'users' WHERE chat_id='{chat_id}'""")
     temp = cursor.fetchone()
     if not temp:
-        return None
+        return
     else:
-        first_in_turple = temp[0]
-        return first_in_turple
+        timezone = temp[0]
+        return timezone
